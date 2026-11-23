@@ -1,15 +1,15 @@
 defmodule CpdDoc.TreeDoc do
   @moduledoc """
-  Treedoc sequence CRDT for a shared text document.
+  Arbol Treedoc para editar texto entre varias replicas.
 
-  Each character has a stable `position_id`. Deletions are stored as
-  tombstones, so an old operation cannot make a deleted character visible
-  again. A local edit returns the operation that replicas should broadcast.
+  Cada caracter tiene una posicion fija. Al borrar dejamos una marca, asi una
+  operacion vieja no vuelve a mostrarlo. Cada cambio local devuelve lo que hay
+  que compartir con las otras replicas.
   """
 
   @max_character_bytes 4_096
 
-  # Crea el estado minimo del documento, sin caracteres ni marcas de borrado.
+  # Arranca el documento vacio, sin caracteres ni marcas de borrado.
   def empty do
     %{characters_by_position: %{}, tombstones: MapSet.new()}
   end
@@ -18,8 +18,8 @@ defmodule CpdDoc.TreeDoc do
     Map.merge(empty(), %{local_counter: 0, last_local_position: nil})
   end
 
-  # Compara dos posiciones segun el recorrido infijo definido por Treedoc.
-  # Todas las replicas usan esta regla para mostrar los caracteres en el mismo orden.
+  # Compara dos posiciones con el recorrido que define Treedoc.
+  # Todas las replicas usan esta regla para mostrar el texto igual.
   def position_before?([], []) do
     false
   end
@@ -47,7 +47,7 @@ defmodule CpdDoc.TreeDoc do
     end)
   end
 
-  # Conserva las entradas de caracteres borradas para futuras operaciones, pero las excluye del texto visible.
+  # Guarda lo borrado para futuras operaciones, pero lo oculta del texto.
   def visible_entries(document) do
     exclude_tombstoned_entries(ordered_entries(document), document.tombstones)
   end
@@ -56,8 +56,8 @@ defmodule CpdDoc.TreeDoc do
     Enum.map_join(visible_entries(document), fn {_position_id, character} -> character end)
   end
 
-  # Construye una posicion entre los vecinos indicados para ubicar un caracter nuevo.
-  # Cada paso combina un bit de direccion con un identificador de operacion unico.
+  # Busca una posicion entre los vecinos para poner el caracter nuevo.
+  # Cada paso lleva una direccion y un identificador unico.
   def new_position_id(:start, :finish, disambiguator) do
     [{1, disambiguator}]
   end
@@ -98,7 +98,7 @@ defmodule CpdDoc.TreeDoc do
     end
   end
 
-  # Calcula los niveles necesarios para distribuir una secuencia de inserciones.
+  # Calcula cuantos niveles hacen falta para insertar varios caracteres.
   def subtree_levels(height) do
     if height <= 1 do
       1
@@ -107,7 +107,7 @@ defmodule CpdDoc.TreeDoc do
     end
   end
 
-  # Valida y aplica una insercion local, y devuelve la operacion que se envia a los pares.
+  # Revisa e inserta un caracter; tambien devuelve la operacion para los pares.
   def insert(document, index, character, site) do
     ordered_entries = ordered_entries(document)
     visible_entries = exclude_tombstoned_entries(ordered_entries, document.tombstones)
@@ -120,7 +120,7 @@ defmodule CpdDoc.TreeDoc do
         {:error, :invalid_character}
 
       true ->
-        # Busca el vecino derecho entre todas las entradas, incluidas las que tienen tombstone.
+        # Busca el vecino derecho, incluso si esta marcado como borrado.
         left_position = previous_position(visible_entries, index)
         right_position = next_position(ordered_entries, left_position)
         next_counter = document.local_counter + 1
@@ -142,14 +142,14 @@ defmodule CpdDoc.TreeDoc do
     end
   end
 
-  # Marca como borrado el caracter visible en el indice solicitado.
+  # Marca como borrado el caracter que esta en ese indice.
   def delete(document, index) do
     visible_entries = visible_entries(document)
 
     if is_integer(index) and index >= 0 and index < length(visible_entries) do
       {position_id, _character} = Enum.at(visible_entries, index)
 
-      # Mantiene la entrada del caracter y registra el borrado para combinarlo con las otras replicas.
+      # Conserva el caracter y guarda la marca para compartirla con los pares.
       operation = %{type: :delete, position_id: position_id}
       {apply_operation(document, operation), operation}
     else
@@ -157,8 +157,8 @@ defmodule CpdDoc.TreeDoc do
     end
   end
 
-  # Integra una operacion recibida desde otro nodo.
-  # Aplicar la misma operacion varias veces deja el documento en el mismo estado.
+  # Aplica una operacion que llego de otro nodo.
+  # Repetirla no cambia el resultado.
   def apply_operation(document, %{type: :insert, position_id: position_id, character: character}) do
     update = %{empty() | characters_by_position: %{position_id => character}}
     merge(document, update)
@@ -172,8 +172,8 @@ defmodule CpdDoc.TreeDoc do
   def apply_operation(document, _unknown_operation), do: document
 
   def merge(left_document, right_document) do
-    # Combina las entradas de caracteres y los tombstones de ambos documentos.
-    # Ante caracteres distintos para una misma posicion, elige el mayor de forma determinista.
+    # Junta los caracteres y las marcas de borrado de ambos documentos.
+    # Si chocan dos caracteres, elige uno siempre con la misma regla.
     %{
       left_document
       | characters_by_position:
@@ -188,8 +188,8 @@ defmodule CpdDoc.TreeDoc do
     }
   end
 
-  # Aplica los mismos limites a las ediciones locales y a los datos recibidos por red.
-  # Asi todas las replicas aceptan o rechazan el mismo caracter.
+  # Usa los mismos limites para cambios locales y mensajes de red.
+  # Asi todas las replicas aceptan o rechazan lo mismo.
   defp valid_character?(character) when is_binary(character) do
     byte_size(character) <= @max_character_bytes and String.valid?(character) and
       match?([_], String.graphemes(character))
@@ -289,7 +289,7 @@ defmodule CpdDoc.TreeDoc do
     end
   end
 
-  # Comprueba si todos los pasos del prefijo coinciden con el inicio de la posicion.
+  # Revisa si una posicion empieza igual que su prefijo.
   defp is_prefix?([], _position), do: true
 
   defp is_prefix?([step | prefix_rest], [step | position_rest]),

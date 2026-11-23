@@ -1,30 +1,29 @@
-# Prueba manual de red. Ejecútala solo en una computadora; en la otra inicia
-# el mismo proyecto con IEx y espera la conexión.
-# Variable requerida: PEER_NODE, por ejemplo "doc@172.20.10.4".
+# Prueba manual de red. Corre esto en una maquina y deja IEx abierto en la otra.
+# PEER_NODE lleva el nombre completo del otro nodo, por ejemplo "doc@172.20.10.4".
 
 alias CpdDoc.Replica
 
 case System.get_env("PEER_NODE") do
   nil ->
-    raise "Set PEER_NODE to the full remote node name, for example PEER_NODE=doc@172.20.10.4"
+    raise "Define PEER_NODE con el nombre completo del otro nodo, por ejemplo PEER_NODE=doc@172.20.10.4"
 
   remote_node_name ->
     remote_node = String.to_atom(remote_node_name)
 
     unless Node.alive?() do
-      raise "Start Elixir with --name and --cookie before running this file"
+      raise "Arranca Elixir con --name y --cookie antes de correr este archivo"
     end
 
     unless Node.connect(remote_node) do
-      raise "Could not connect to #{remote_node_name}; check the IP, cookie, and firewall"
+      raise "No pude conectar con #{remote_node_name}; revisa la IP, la cookie y el firewall"
     end
 
     unless Node.ping(remote_node) == :pong and
              :rpc.call(remote_node, Process, :whereis, [Crdt.Replica]) != nil do
-      raise "The remote node is not responding or its Crdt.Replica process is not running"
+      raise "El otro nodo no responde o no tiene corriendo Crdt.Replica"
     end
 
-    # Primero espera que el historial previo de ambas réplicas se intercambie.
+    # Primero espera a que las dos replicas intercambien su historial.
     initial_sync_complete =
       Enum.reduce_while(1..50, false, fn _, _accumulator ->
         remote_text = :rpc.call(remote_node, CpdDoc.Replica, :text, [])
@@ -38,10 +37,10 @@ case System.get_env("PEER_NODE") do
       end)
 
     unless initial_sync_complete do
-      raise "Initial operation history did not synchronize within 10 seconds"
+      raise "El historial no se sincronizo en 10 segundos"
     end
 
-    # Escoge una letra ausente del texto para que la comprobación sea visible.
+    # Escoge una letra que no este en el texto para que se note el cambio.
     local_text_before_test = Replica.text()
 
     test_character =
@@ -49,7 +48,7 @@ case System.get_env("PEER_NODE") do
         not String.contains?(local_text_before_test, character)
       end)
 
-    if test_character == nil, do: raise("Choose another text or add more test characters")
+    if test_character == nil, do: raise("Cambia el texto o agrega mas letras para probar")
 
     :ok = Replica.insert(0, test_character)
 
@@ -67,8 +66,8 @@ case System.get_env("PEER_NODE") do
       end)
 
     if replicas_converged do
-      IO.puts("OK: both nodes show the same text: #{inspect(Replica.text())}")
+      IO.puts("Listo: los dos nodos muestran el mismo texto: #{inspect(Replica.text())}")
     else
-      raise "The nodes connected, but the document did not converge within 10 seconds"
+      raise "Los nodos conectaron, pero el documento no quedo igual en 10 segundos"
     end
 end

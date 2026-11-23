@@ -1,34 +1,21 @@
 import Config
 
-# Use shoehorn to start the main application. See the shoehorn
-# library documentation for more control in ordering how OTP
-# applications are started and handling failures.
-
+# Shoehorn arranca la app principal y maneja errores al iniciar.
 config :shoehorn, init: [:nerves_runtime, :nerves_pack]
 
-# Enable the system startup guard to check that all OTP applications
-# started. If they didn't and you're on a Nerves system that supports
-# test runs of new firmware, the firmware will automatically roll
-# back to the previous version. Delete this if implementing your own
-# way of validating that firmware is good.
+# Nerves revisa que arranquen las apps y vuelve atras si alguna falla.
 config :nerves_runtime, startup_guard_enabled: true
 
-# Erlinit can be configured without a rootfs_overlay. See
-# https://github.com/nerves-project/erlinit/ for more information on
-# configuring erlinit.
-
-# Advance the system clock on devices without a real-time clock.
+# Ajusta el reloj en equipos que no tienen reloj de tiempo real.
 config :nerves, :erlinit, update_clock: true
 
-# Default to not starting so that the console logger isn't started. See
-# runtime.exs for logger configuration.
+# En la Pi, /data apunta a la particion persistente de la app.
+config :cpd_doc, operation_log_path: "/data/cpd_doc/operations.log"
+
+# Dejamos los mensajes de consola para la consola de Nerves.
 config :logger, :default_handler, false
 
-# Configure the device for SSH IEx prompt access and firmware updates
-#
-# * See https://nerves-ssh.hexdocs.pm/readme.html for general SSH configuration
-# * See https://ssh-subsystem-fwup.hexdocs.pm/readme.html for firmware updates
-
+# Permite entrar por SSH y subir firmware con las llaves de ~/.ssh.
 keys =
   System.user_home!()
   |> Path.join(".ssh/id_{rsa,ecdsa,ed25519}.pub")
@@ -37,29 +24,24 @@ keys =
 if keys == [],
   do:
     Mix.raise("""
-    No SSH public keys found in ~/.ssh. An ssh authorized key is needed to
-    log into the Nerves device and update firmware on it using ssh.
-    See your project's config.exs for this error message.
+    No encontre llaves SSH publicas en ~/.ssh. Hace falta una para entrar a la Pi
+    y subirle firmware. Agrega una llave publica y vuelve a compilar.
     """)
 
 config :nerves_ssh,
   authorized_keys: Enum.map(keys, &File.read!/1)
 
-# Configure the network using vintage_net
-#
-# Update regulatory_domain to your 2-letter country code E.g., "US"
-#
-# See https://github.com/nerves-networking/vintage_net for more information
+# Ajusta la red con VintageNet y usa CO como codigo del pais.
 hotspot_ssid = System.get_env("HOTSPOT_SSID")
 hotspot_psk = System.get_env("HOTSPOT_PSK")
 
 if hotspot_ssid in [nil, ""] or hotspot_psk == nil or String.length(hotspot_psk) < 8,
   do:
     Mix.raise("""
-    Faltan las credenciales del hotspot. Antes de compilar, exporta:
+    Faltan los datos del Wi-Fi. Antes de compilar, ejecuta:
 
-        export HOTSPOT_SSID="nombre del hotspot"
-        export HOTSPOT_PSK="clave de 8 a 63 caracteres"
+        export HOTSPOT_SSID="nombre del Wi-Fi"
+        export HOTSPOT_PSK="clave de al menos 8 caracteres"
     """)
 
 config :vintage_net,
@@ -84,18 +66,11 @@ config :vintage_net,
   ]
 
 config :mdns_lite,
-  # The `hosts` key specifies what hostnames mdns_lite advertises.  `:hostname`
-  # advertises the device's hostname.local. For the official Nerves systems, this
-  # is "nerves-<4 digit serial#>.local".  The `"nerves"` host causes mdns_lite
-  # to advertise "nerves.local" for convenience. If more than one Nerves device
-  # is on the network, it is recommended to delete "nerves" from the list
-  # because otherwise any of the devices may respond to nerves.local leading to
-  # unpredictable behavior.
-
+  # Anuncia el nombre de la Pi y tambien nerves.local para conectarte facil.
   hosts: [:hostname, "nerves"],
   ttl: 120,
 
-  # Advertise the following services over mDNS.
+  # Anuncia SSH y EPMD en la red local.
   services: [
     %{
       protocol: "ssh",
@@ -113,9 +88,3 @@ config :mdns_lite,
       port: 4369
     }
   ]
-
-# Import target specific config. This must remain at the bottom
-# of this file so it overrides the configuration defined above.
-# Uncomment to use target specific configurations
-
-# import_config "#{Mix.target()}.exs"

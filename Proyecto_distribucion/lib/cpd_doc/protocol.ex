@@ -1,8 +1,9 @@
 defmodule CpdDoc.Protocol do
   @moduledoc """
-  Validates and converts messages used by the Treedoc Nerves implementation.
+  Revisa y convierte los mensajes que usan la Pi y las otras replicas.
 
-  Remote operations use `{:remote, %{op: :ins | :del, from: actor, vc: clock, pos: position}}`.
+  Las operaciones remotas viajan asi:
+  `{:remote, %{op: :ins | :del, from: actor, vc: clock, pos: position}}`.
   """
 
   @max_position_depth 10_000
@@ -10,7 +11,7 @@ defmodule CpdDoc.Protocol do
   @max_character_bytes 4_096
 
   def name, do: Crdt.Replica
-#Importante: esta es la manera en la que se envian los elementos
+  # Ojo: asi se mandan las operaciones entre replicas.
   def encode_operation(
         %{type: :insert, position_id: position_id, character: character},
         actor,

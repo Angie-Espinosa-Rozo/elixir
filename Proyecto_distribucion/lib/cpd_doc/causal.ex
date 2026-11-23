@@ -1,5 +1,5 @@
 defmodule CpdDoc.Causal do
-  @moduledoc "Small vector-clock helper that delivers operations in causal order."
+  @moduledoc "Auxiliar para que las operaciones lleguen en orden causal."
 
   def next_local(clock, actor) do
     sequence = Map.get(clock, actor, 0) + 1

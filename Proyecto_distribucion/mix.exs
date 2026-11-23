@@ -32,7 +32,7 @@ defmodule CpdDoc.MixProject do
     ]
   end
 
-  # Run "mix help compile.app" to learn about applications.
+  # Aqui se define que arranca la aplicacion.
   def application do
     [
       extra_applications: [:logger, :runtime_tools],
@@ -44,28 +44,25 @@ defmodule CpdDoc.MixProject do
     [preferred_targets: [run: :host, test: :host]]
   end
 
-  # Run "mix help deps" to learn about dependencies.
+  # Aqui van las dependencias del proyecto.
   defp deps do
     [
-      # Dependencies for all targets
+      # Estas dependencias se usan en todos los equipos.
       {:nerves, "~> 1.13", runtime: false},
       {:shoehorn, "~> 0.9.1"},
       {:logger_backends, "~> 1.0"},
       {:ring_logger, "~> 0.11.0"},
       {:toolshed, "~> 0.5.0"},
 
-      # Allow Nerves.Runtime on host to support development, testing and CI.
-      # See config/host.exs for usage.
+      # Nerves.Runtime tambien se usa en la laptop para desarrollar y probar.
+      # Mira config/host.exs para ver sus ajustes.
       {:nerves_runtime, "~> 0.13.12"},
 
-      # Dependencies for all targets except :host
+      # Estas dependencias se usan en los equipos Nerves, no en la laptop.
       {:nerves_pack, "~> 0.7.1", targets: @all_targets},
 
-      # Dependencies for specific targets
-      # NOTE: It's generally low risk and recommended to follow minor version
-      # bumps to Nerves systems. Since these include Linux kernel and Erlang
-      # version updates, please review their release notes in case
-      # changes to your application are needed.
+      # Cada sistema corresponde a un equipo distinto.
+      # Al actualizarlo, revisa sus cambios de Linux y Erlang.
       {:nerves_system_bbb, "~> 2.19", runtime: false, targets: :bbb},
       {:nerves_system_mangopi_mq_pro, "~> 0.6", runtime: false, targets: :mangopi_mq_pro},
       {:nerves_system_qemu_aarch64, "~> 0.1", runtime: false, targets: :qemu_aarch64},
@@ -84,8 +81,7 @@ defmodule CpdDoc.MixProject do
   def release do
     [
       overwrite: true,
-      # Erlang distribution is not started automatically.
-      # See https://nerves-pack.hexdocs.pm/readme.html#erlang-distribution
+      # El nodo distribuido se prende al arrancar, con la IP del equipo.
       cookie: "cpd2026",
       include_erts: &Nerves.Release.erts/0,
       steps: [&Nerves.Release.init/1, :assemble],
@@ -93,8 +89,6 @@ defmodule CpdDoc.MixProject do
     ]
   end
 
-  # Uncomment the following line if using Phoenix > 1.8.
-  # defp listeners(:host, :dev), do: [Phoenix.CodeReloader]
   defp listeners(_, _), do: []
 
   defp elixirc_paths(:host), do: ["lib"]

@@ -1,21 +1,12 @@
-# This file is responsible for configuring your application and its
-# dependencies.
-#
-# This configuration file is loaded before any dependency and is restricted to
-# this project.
+# Ajustes generales de la app y el firmware.
 import Config
 
-# Enable the Nerves integration with Mix
 Application.start(:nerves_bootstrap)
 
-# Customize non-Elixir parts of the firmware. See
-# https://nerves.hexdocs.pm/advanced-configuration.html for details.
-
+# Archivos extra que se copian al firmware.
 config :nerves, :firmware, rootfs_overlay: "rootfs_overlay"
 
-# Set the SOURCE_DATE_EPOCH date for reproducible builds.
-# See https://reproducible-builds.org/docs/source-date-epoch/ for more information
-
+# Fija la fecha para que las compilaciones se puedan repetir.
 config :nerves, source_date_epoch: "1795044054"
 
 if Mix.target() == :host do

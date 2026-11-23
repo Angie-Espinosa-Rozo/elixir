@@ -1,17 +1,17 @@
-# The directory Mix will write compiled artifacts to.
+# Carpeta donde Mix deja los archivos compilados.
 /_build/
 
-# If you run "mix test --cover", coverage assets end up here.
+# Archivos que genera "mix test --cover".
 /cover/
 
-# The directory Mix downloads your dependencies sources to.
+# Carpeta donde Mix descarga las dependencias.
 /deps/
 
-# Where third-party dependencies like ExDoc output generated docs.
+# Documentacion que generan ExDoc y otras dependencias.
 /doc/
 
-# Temporary files, for example, from tests.
+# Archivos temporales, por ejemplo los de las pruebas.
 /tmp/
 
-# If the VM crashes, it generates a dump, let's ignore it too.
+# Volcado que deja la VM si se cae.
 erl_crash.dump

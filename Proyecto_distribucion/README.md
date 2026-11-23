@@ -1,8 +1,12 @@
-# Proyecto de distribución: Treedoc operation-based
+# Proyecto de distribucion: Treedoc por operaciones
 
 Este paquete contiene una sola aplicación: un documento distribuido Treedoc.
 Cada nodo mantiene una réplica local, genera una operación por edición y la
 envía a los otros nodos. No hay servidor central.
+
+Cada caracter tiene una posicion fija. Al borrar, Treedoc deja una marca para
+que un mensaje atrasado no lo muestre de nuevo. El reloj vectorial espera los
+cambios anteriores y descarta los repetidos.
 
 ## Ejecutar en un computador
 
@@ -30,9 +34,14 @@ Ambos nodos deben usar nombres largos (`--name`) y la misma cookie. En IEx:
 
 ```elixir
 CpdDoc.Replica.insert(0, "h")
+CpdDoc.Replica.insert(1, "ola, mundo")
 CpdDoc.Replica.delete(0)
 CpdDoc.Replica.text()
 ```
+
+`insert/2` acepta un texto completo y lo divide en grafemas para insertarlos
+desde la posición indicada. Cada grafema se transmite como una operación del
+protocolo existente.
 
 ## Probar dos computadores
 
@@ -61,20 +70,20 @@ sola computadora; en la otra basta con dejar IEx iniciado.
 
 ## Archivos principales
 
-- `lib/cpd_doc/tree_doc.ex`: ordering, position IDs, edits, and operation application.
-- `lib/cpd_doc/protocol.ex`: shared wire format and message validation.
-- `lib/cpd_doc/causal.ex`: vector clocks and causal delivery.
-- `lib/cpd_doc/replica.ex`: `Crdt.Replica` process, API, broadcast, and in-memory history.
-- `lib/cpd_doc/discovery.ex` and `lib_target/network.ex`: network node discovery.
-- `test/tree_doc_operation_test.exs`: local tests for the operation-based Treedoc.
-- `scripts/test_two_computers.exs`: manual test between two computers.
-- `PROTOCOL.md`: contrato de mensajes de esta implementación.
-- `CRDT.md`: explicación de las reglas de convergencia.
+- `lib/cpd_doc/tree_doc.ex`: posiciones, inserciones, borrados y aplicacion de cambios.
+- `lib/cpd_doc/protocol.ex`: formato de mensajes y validacion.
+- `lib/cpd_doc/causal.ex`: reloj vectorial y entrega ordenada de cambios.
+- `lib/cpd_doc/replica.ex`: proceso `Crdt.Replica`, API e historial.
+- `lib/cpd_doc/operation_log.ex`: guardado y recuperacion del historial.
+- `lib/cpd_doc/discovery.ex` y `lib_target/boot.ex`: arranque y busqueda de pares.
+- `test/`: pruebas locales del Treedoc y de la red.
+- `scripts/test_two_computers.exs`: prueba manual entre dos computadores.
+- `PROTOCOL.md`: formato de mensajes que comparten las replicas.
 
-El historial se mantiene en memoria. Si todos los nodos se apagan, se pierde el
-documento. El nombre del proceso y el formato de mensajes siguen el contrato de
-la implementación Nerves adjunta; ambas máquinas de la prueba deben usar el
-mismo formato y las mismas reglas de orden Treedoc.
+La Pi conserva el historial en `/data/cpd_doc/operations.log`, incluso al
+reiniciar. La replica de la laptop solo lo guarda en memoria. Para que dos
+maquinas se entiendan, ambas deben usar el mismo formato de mensajes y las
+mismas reglas de orden Treedoc.
 
 ## Raspberry Pi
 
@@ -82,8 +91,23 @@ La configuración de Nerves está en `config/` y `lib_target/`. Para compilar el
 firmware de una Pi 4, configura las credenciales del Wi-Fi y ejecuta:
 
 ```sh
-export MIX_TARGET=rpi4 HOTSPOT_SSID="nombre_del_wifi" HOTSPOT_PSK="clave_del_wifi"
+export MIX_TARGET=rpi4 HOTSPOT_SSID="cpd2026" HOTSPOT_PSK="1234567890"
 mix deps.get
 mix firmware
 mix burn
 ```
+
+Al arrancar, la Pi espera a que `wlan0` reciba una dirección IPv4. Entonces
+inicia automáticamente el nodo distribuido `doc@<IP>`, la réplica y el
+descubrimiento de pares. Para comprobarlo desde la consola SSH de Nerves:
+
+```elixir
+Node.self()
+Process.whereis(Crdt.Replica)
+CpdDoc.Replica.text()
+```
+
+En la Pi, la replica guarda las operaciones aceptadas en
+`/data/cpd_doc/operations.log` y reconstruye el documento al arrancar. En la
+laptop, la replica solo vive en memoria. El archivo de la Pi crece con el uso y
+por ahora no se compacta solo.

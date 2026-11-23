@@ -1,4 +1,4 @@
 NervesMOTD.print()
 
-# Add Toolshed helpers to the IEx session
+# Agrega comandos utiles de Toolshed a la consola IEx.
 use Toolshed
