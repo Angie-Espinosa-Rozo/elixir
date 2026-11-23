@@ -10,7 +10,7 @@ defmodule CpdDoc.Protocol do
   @max_character_bytes 4_096
 
   def name, do: Crdt.Replica
-
+#Importante: esta es la manera en la que se envian los elementos
   def encode_operation(
         %{type: :insert, position_id: position_id, character: character},
         actor,
