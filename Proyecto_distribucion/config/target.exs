@@ -38,10 +38,8 @@ hotspot_psk = System.get_env("HOTSPOT_PSK")
 if hotspot_ssid in [nil, ""] or hotspot_psk == nil or String.length(hotspot_psk) < 8,
   do:
     Mix.raise("""
-    Faltan los datos del Wi-Fi. Antes de compilar, ejecuta:
-
-        export HOTSPOT_SSID="nombre del Wi-Fi"
-        export HOTSPOT_PSK="clave de al menos 8 caracteres"
+        export HOTSPOT_SSID="cpd2026"
+        export HOTSPOT_PSK="1234567890"
     """)
 
 config :vintage_net,

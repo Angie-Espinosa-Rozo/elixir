@@ -11,7 +11,8 @@ defmodule CpdDoc.Replica do
   def start_link(arguments), do: GenServer.start_link(__MODULE__, arguments, name: @process_name)
 
   def insert(index, text), do: GenServer.call(@process_name, {:insert, index, text})
-  def delete(index), do: GenServer.call(@process_name, {:delete, index})
+  def delete(index), do: delete(index, 1)
+  def delete(index, count), do: GenServer.call(@process_name, {:delete, index, count})
   def text(), do: GenServer.call(@process_name, :text)
 
   def broadcast(message) do
@@ -60,30 +61,22 @@ defmodule CpdDoc.Replica do
     end
   end
 
-  def handle_call({:delete, index}, _from, state) do
-    case TreeDoc.delete(state.document, index) do
+  def handle_call({:delete, index, count}, _from, state) do
+    with :ok <- validate_delete_range(state.document, index, count),
+         {:ok, updated_state, messages} <- delete_graphemes(index, count, state) do
+      chronological_messages = Enum.reverse(messages)
+
+      case persist_operations(chronological_messages) do
+        :ok ->
+          Enum.each(chronological_messages, &broadcast/1)
+          {:reply, :ok, updated_state}
+
+        {:error, reason} ->
+          {:reply, {:error, {:persistence, reason}}, state}
+      end
+    else
       {:error, reason} ->
         {:reply, {:error, reason}, state}
-
-      {document, operation} ->
-        {_sequence, clock} = Causal.next_local(state.clock, state.actor)
-        message = Protocol.encode_operation(operation, state.actor, clock)
-
-        case persist_operations([message]) do
-          :ok ->
-            updated_state = %{
-              state
-              | document: document,
-                clock: clock,
-                history: [message | state.history]
-            }
-
-            broadcast(message)
-            {:reply, :ok, updated_state}
-
-          {:error, reason} ->
-            {:reply, {:error, {:persistence, reason}}, state}
-        end
     end
   end
 
@@ -199,6 +192,15 @@ defmodule CpdDoc.Replica do
       else: {:error, :invalid_position}
   end
 
+  defp validate_delete_range(document, index, count) do
+    visible_length = length(TreeDoc.visible_entries(document))
+
+    if is_integer(index) and is_integer(count) and index >= 0 and count >= 0 and
+         index <= visible_length and index + count <= visible_length,
+       do: :ok,
+       else: {:error, :invalid_position}
+  end
+
   defp split_text(text) when is_binary(text) do
     if String.valid?(text),
       do: {:ok, String.graphemes(text)},
@@ -218,6 +220,30 @@ defmodule CpdDoc.Replica do
              grapheme,
              {current_state.actor, 1}
            ) do
+        {:error, reason} ->
+          {:halt, {:error, reason}}
+
+        {document, operation} ->
+          {_sequence, clock} = Causal.next_local(current_state.clock, current_state.actor)
+          message = Protocol.encode_operation(operation, current_state.actor, clock)
+
+          updated_state = %{
+            current_state
+            | document: document,
+              clock: clock,
+              history: [message | current_state.history]
+          }
+
+          {:cont, {:ok, updated_state, [message | messages]}}
+      end
+    end)
+  end
+
+  defp delete_graphemes(_index, 0, state), do: {:ok, state, []}
+
+  defp delete_graphemes(index, count, state) do
+    Enum.reduce_while(1..count, {:ok, state, []}, fn _number, {:ok, current_state, messages} ->
+      case TreeDoc.delete(current_state.document, index) do
         {:error, reason} ->
           {:halt, {:error, reason}}
 
