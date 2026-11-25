@@ -25,4 +25,5 @@
 -run elixir start_cli
 -elixir ansi_enabled true
 -extra --no-halt
+--
 --dot-iex /etc/iex.exs
