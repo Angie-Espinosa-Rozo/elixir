@@ -111,3 +111,18 @@ En la Pi, la replica guarda las operaciones aceptadas en
 `/data/cpd_doc/operations.log` y reconstruye el documento al arrancar. En la
 laptop, la replica solo vive en memoria. El archivo de la Pi crece con el uso y
 por ahora no se compacta solo.
+
+### Editor en el monitor conectado a la Pi
+
+Conecta un monitor por HDMI y un teclado USB. En la consola IEx que aparece en
+ese monitor (no en una sesión SSH), ejecuta:
+
+```elixir
+CpdDoc.Editor.start()
+```
+
+Escribe el texto y pulsa Enter. Luego indica `s` para agregar un salto de línea
+o `n` para continuar el texto en la misma línea. Usa `:d N` para borrar los
+últimos N caracteres, `:clear` para borrar todo el documento compartido y
+`:exit` para regresar a IEx. La pantalla se actualiza al recibir cambios
+remotos.

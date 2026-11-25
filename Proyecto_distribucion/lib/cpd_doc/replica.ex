@@ -13,6 +13,7 @@ defmodule CpdDoc.Replica do
   def insert(index, text), do: GenServer.call(@process_name, {:insert, index, text})
   def delete(index), do: delete(index, 1)
   def delete(index, count), do: GenServer.call(@process_name, {:delete, index, count})
+  def clear(), do: GenServer.call(@process_name, :clear)
   def text(), do: GenServer.call(@process_name, :text)
 
   def broadcast(message) do
@@ -64,6 +65,26 @@ defmodule CpdDoc.Replica do
   def handle_call({:delete, index, count}, _from, state) do
     with :ok <- validate_delete_range(state.document, index, count),
          {:ok, updated_state, messages} <- delete_graphemes(index, count, state) do
+      chronological_messages = Enum.reverse(messages)
+
+      case persist_operations(chronological_messages) do
+        :ok ->
+          Enum.each(chronological_messages, &broadcast/1)
+          {:reply, :ok, updated_state}
+
+        {:error, reason} ->
+          {:reply, {:error, {:persistence, reason}}, state}
+      end
+    else
+      {:error, reason} ->
+        {:reply, {:error, reason}, state}
+    end
+  end
+
+  def handle_call(:clear, _from, state) do
+    count = length(TreeDoc.visible_entries(state.document))
+
+    with {:ok, updated_state, messages} <- delete_graphemes(0, count, state) do
       chronological_messages = Enum.reverse(messages)
 
       case persist_operations(chronological_messages) do
